@@ -86,15 +86,13 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// HTTP EventSource
-	Es := eventsource.New(nil)
-	defer Es.Close()
-	http.Handle("/events", Es)
-
+	es := eventsource.New(nil)
+	defer es.Close()
+	http.Handle("/events", es)
 	go func() {
 		for {
 			log := <-EventPipe
-			Es.SendMessage(log.URL, "add", "")
-			fmt.Println(log.OriginatingIP)
+			es.SendMessage(log.URL, "add", "")
 		}
 	}()
 
@@ -110,7 +108,6 @@ func main() {
 	proxy.OnRequest().DoFunc(func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 		originatingip := strings.Split(r.RemoteAddr, ":")[0]
 		r.Header.Set("X-Forwarded-For", originatingip)
-		fmt.Println("Request received")
 		return r, nil
 	})
 	proxy.OnResponse().DoFunc(func(r *http.Response, ctx *goproxy.ProxyCtx) *http.Response {

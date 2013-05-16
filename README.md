@@ -1,6 +1,6 @@
-# af83-proxy 
+# snitch.go
 
-af83-proxy should be a simple HTTP proxy that helps everyone to test, debug and
+snitch.go should be a simple HTTP proxy that helps everyone to test, debug and
 reverse HTTP based applications by sitting in the middle and giving users
 structured informations about 
 
