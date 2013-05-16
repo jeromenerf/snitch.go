@@ -17,3 +17,11 @@ structured informations about
 * charles proxy : 
 * fiddler2 : http://fiddler2.com is a source of inspiration, though it's a evil
   .NET application that doesn't provide a network install
+
+## TODO
+
+* make a real daemon
+* clean / split HTML and proxy
+* forward more informations to SSE
+* use redis 
+* ...
