@@ -1,6 +1,5 @@
-// af83proxy.go
+// snitch.go
 // A debug HTTP proxy
-// Jérôme Andrieux, 2013
 package main
 
 import (
