@@ -14,14 +14,13 @@ structured informations about
 
 * goproxy : https://github.com/elazarl/goproxy a good lib to build a proxy in
   golang
-* charles proxy : 
 * fiddler2 : http://fiddler2.com is a source of inspiration, though it's a evil
-  .NET application that doesn't provide a network install
+  .NET application that doesn't provide a network service
 
 ## TODO
 
 * make a real daemon
 * clean / split HTML and proxy
 * forward more informations to SSE
-* use redis 
-* ...
+* add ID to log to retrieve them individually 
+* add TTL to log entries in the index
