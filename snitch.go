@@ -3,106 +3,65 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	eventsource "github.com/antage/eventsource/http"
 	"github.com/bmizerany/pat"
 	"github.com/elazarl/goproxy"
-	//"github.com/vmihailenco/redis"
+	"github.com/mattbaird/elastigo/api"
+	"github.com/mattbaird/elastigo/core"
+	"github.com/mattbaird/elastigo/indices"
+	"github.com/mattbaird/elastigo/search"
 	"html/template"
 	"net/http"
-	"net/http/httputil"
+	//"net/http/httputil" // http.Response.Body byting
 	"runtime"
 	"strings"
-	"time"
-)
-
-const (
-	printlogs_tpl = `
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Logs</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
-    <script type="text/javascript">
-      $(function () {
-        var evsrc = new EventSource("/events");
-        evsrc.onmessage = function (ev) {
-			console.log(ev);
-          var data = ev.data ;
-          $("#log > ul").append("<li>" + data + "</li>");
-        }
-        evsrc.onerror = function (ev) {
-          console.log("readyState = " + ev.currentTarget.readyState)
-        }
-      })
-    </script>
-</head>
-<body>
-  <h1>Logs</h1>
-    <div id="log">
-      <ul>
-      </ul>
-    </div>
-  <dl>
-    {{range .}}
-    <dt>{{.OriginatingIP}} : {{.Method}} {{.URL}} at {{.Timestamp}}</dt>
-	<dd>{{.Body}}</dd>
-    {{end}}
-  </ol>
-</body>
-</html>
-`
 )
 
 type Log struct {
-	// FIXME I should store the whole http.Request and http.Response
-	Timestamp     int64
 	OriginatingIP string
 	Method        string
 	URL           string
-	Body          string
+	Request       http.Request
+	Response      http.Response
 }
 
 var (
-	Logs      []Log
-	LogPipe   = make(chan Log, 3)
-	EventPipe = make(chan Log, 3)
+	LogPipe = make(chan Log, 3) //FIXME
+	Pouet Log
 )
 
 func PrintLogs(w http.ResponseWriter, req *http.Request) {
-	t, _ := template.New("printlogs").Parse(printlogs_tpl)
-	t.ExecuteTemplate(w, "printlogs", Logs)
-}
-
-func CollectLogs() {
-	for {
-		log := <-LogPipe
-		Logs = append(Logs, log)
+	t, _ := template.ParseFiles("views/printlogs.html")
+	err := t.Execute(w, GetLogs())
+	if err != nil {
+		fmt.Println("template execution", err)
 	}
 }
 
-func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+func GetLogs() []Log {
+	var logs []Log
+	var log Log
+	out, _ := search.Search("logs").Type("log").Size("100").Result()
+	hits := out.Hits.Hits
+	for _, hit := range hits {
+		json.Unmarshal(hit.Source, &log)
+		logs = append(logs, log)
+	}
+	return logs
+}
 
-	// HTTP EventSource
-	es := eventsource.New(nil)
-	defer es.Close()
-	http.Handle("/events", es)
-	go func() {
-		for {
-			log := <-EventPipe
-			es.SendMessage(log.URL, "add", "")
-		}
-	}()
+func CollectLogs(es eventsource.EventSource) {
+	for {
+		log := <-LogPipe
+		es.SendMessage(, "", "")
+		core.Index(true, "logs", "log", "", log)
+		indices.Flush()
+	}
+}
 
-	// HTTP interface
-	m := pat.New()
-	m.Get("/logs", http.HandlerFunc(PrintLogs))
-	http.Handle("/", m)
-	go http.ListenAndServe("0.0.0.0:8081", nil)
-	go CollectLogs()
-
-	// Proxy
+func doTheProxyStuff() {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.OnRequest().DoFunc(func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 		originatingip := strings.Split(r.RemoteAddr, ":")[0]
@@ -113,13 +72,35 @@ func main() {
 		originatingip := ctx.Req.Header.Get("X-Forwarded-For")
 		method := ctx.Req.Method
 		url := ctx.Req.URL.String()
-		bodybytes, _ := httputil.DumpResponse(r, true)
-		body := string(bodybytes)
-		log := Log{OriginatingIP: originatingip, Method: method, URL: url, Body: body, Timestamp: time.Now().Unix()}
+		log := Log{OriginatingIP: originatingip, Method: method, URL: url, Request: *ctx.Req, Response: *r}
+		Pouet = log
 		LogPipe <- log
-		EventPipe <- log
 		return r
 	})
 	fmt.Println("Proxy listening on http://0.0.0.0:8080")
 	http.ListenAndServe("0.0.0.0:8080", proxy)
+}
+
+func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	// Elasticsearch
+	api.Domain = "localhost"
+	
+
+	// Proxy
+	go doTheProxyStuff()
+
+	// HTTP
+	es := eventsource.New(nil)
+	defer es.Close()
+	go CollectLogs(es)
+	http.Handle("/events", es)
+	
+	m := pat.New()
+	m.Get("/logs", http.HandlerFunc(PrintLogs))
+	//m.Get("/logs/:id", http.HandlerFunc(PrintLog))
+	//m.Get("/logs/?filter=:ip", http.HandlerFunc(PrintLogsForIp))
+	http.Handle("/", m)
+	http.ListenAndServe("0.0.0.0:8081", nil)
 }

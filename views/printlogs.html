@@ -1,0 +1,31 @@
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Logs</title>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+		<script type="text/javascript">
+			$(function () {
+					var evsrc = new EventSource("/events");
+					evsrc.onmessage = function (ev) {
+					console.log(ev);
+					var data = ev.data ;
+					$("#log > dl").append("<dt>" + data + "</dt><dd>FIXME</dd>");
+					}
+					evsrc.onerror = function (ev) {
+					console.log("readyState = " + ev.currentTarget.readyState)
+					}
+					})
+</script>
+</head>
+<body>
+	<h1>Logs</h1>
+	<div id="log">
+		<dl>
+			{{range .}}
+			<dt>{{.OriginatingIP}} : {{.Method}} {{.URL}}</dt>
+			<dd><em>See more at <a href="/logs/:id">/logs/:id</a></em></dd> 
+			{{end}}
+		</ol>
+	</div>
+</body>
+</html>
