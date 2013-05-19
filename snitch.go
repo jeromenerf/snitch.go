@@ -20,6 +20,7 @@ import (
 )
 
 type Log struct {
+	Id            string
 	OriginatingIP string
 	Method        string
 	URL           string
@@ -29,17 +30,28 @@ type Log struct {
 
 var (
 	LogPipe = make(chan Log, 3) //FIXME
-	Pouet Log
 )
 
+// PrintLogs writes the list of log lines GetLogs() returns
 func PrintLogs(w http.ResponseWriter, req *http.Request) {
 	t, _ := template.ParseFiles("views/printlogs.html")
 	err := t.Execute(w, GetLogs())
 	if err != nil {
-		fmt.Println("template execution", err)
+		fmt.Println("EPRINTLOGS: ", err)
 	}
 }
 
+// PrintLog writes the whole request and response for a given ES ":logid"
+func PrintLog(w http.ResponseWriter, req *http.Request) {
+	t, _ := template.ParseFiles("views/printlog.html")
+	logid := req.URL.Query().Get(":logid")
+	err := t.Execute(w, GetLog(logid))
+	if err != nil {
+		fmt.Println("EPRINTLOG: ", err)
+	}
+}
+
+// GetLogs returns an array of log lines []Log from ES, limited to the last 100
 func GetLogs() []Log {
 	var logs []Log
 	var log Log
@@ -47,17 +59,34 @@ func GetLogs() []Log {
 	hits := out.Hits.Hits
 	for _, hit := range hits {
 		json.Unmarshal(hit.Source, &log)
+		log.Id = hit.Id
 		logs = append(logs, log)
 	}
 	return logs
 }
 
-func CollectLogs(es eventsource.EventSource) {
+// GetLog returns a whole Log line corresponding to ES :logid
+func GetLog(logid string) Log {
+	var log Log
+	out, _ := core.SearchUri("logs", "log", fmt.Sprintf("_id:%s", logid), "")
+	hits := out.Hits.Hits
+	for _, hit := range hits {
+		json.Unmarshal(hit.Source, &log)
+		log.Id = hit.Id
+	}
+	return log
+}
+
+func DispatchLogs(es eventsource.EventSource) {
 	for {
 		log := <-LogPipe
-		es.SendMessage(, "", "")
-		core.Index(true, "logs", "log", "", log)
-		indices.Flush()
+		resp, err := core.Index(true, "logs", "log", "", log)
+		if err != nil {
+			fmt.Println("EINDEXING: ", err)
+		} else {
+			es.SendMessage(log.URL, "", resp.Id) // I should add a type
+			indices.Flush()
+		}
 	}
 }
 
@@ -73,7 +102,6 @@ func doTheProxyStuff() {
 		method := ctx.Req.Method
 		url := ctx.Req.URL.String()
 		log := Log{OriginatingIP: originatingip, Method: method, URL: url, Request: *ctx.Req, Response: *r}
-		Pouet = log
 		LogPipe <- log
 		return r
 	})
@@ -86,7 +114,6 @@ func main() {
 
 	// Elasticsearch
 	api.Domain = "localhost"
-	
 
 	// Proxy
 	go doTheProxyStuff()
@@ -94,12 +121,12 @@ func main() {
 	// HTTP
 	es := eventsource.New(nil)
 	defer es.Close()
-	go CollectLogs(es)
+	go DispatchLogs(es)
 	http.Handle("/events", es)
-	
+
 	m := pat.New()
 	m.Get("/logs", http.HandlerFunc(PrintLogs))
-	//m.Get("/logs/:id", http.HandlerFunc(PrintLog))
+	m.Get("/logs/:logid", http.HandlerFunc(PrintLog))
 	//m.Get("/logs/?filter=:ip", http.HandlerFunc(PrintLogsForIp))
 	http.Handle("/", m)
 	http.ListenAndServe("0.0.0.0:8081", nil)

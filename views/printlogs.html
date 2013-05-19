@@ -23,7 +23,7 @@
 		<dl>
 			{{range .}}
 			<dt>{{.OriginatingIP}} : {{.Method}} {{.URL}}</dt>
-			<dd><em>See more at <a href="/logs/:id">/logs/:id</a></em></dd> 
+			<dd><em>See more at <a href="/logs/{{.Id}}">/logs/{{.Id}}</a></em></dd> 
 			{{end}}
 		</ol>
 	</div>

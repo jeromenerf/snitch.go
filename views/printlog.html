@@ -1,0 +1,20 @@
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Log {{.Id}}</title>
+	</head>
+	<body>
+		<h1>Log {{.Id}}</h1>
+		<div id="log">
+			<dl>
+				<dt>{{.OriginatingIP}} : {{.Method}} {{.URL}}</dt>
+				<dd>{{.Response.StatusCode}} : {{.Response.Status}}</dd>
+				<dd>
+				<code>
+					{{.Response.Header}}
+				</code>
+				</dd>
+			</ol>
+		</div>
+	</body>
+</html>
