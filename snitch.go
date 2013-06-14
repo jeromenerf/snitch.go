@@ -29,25 +29,35 @@ type Log struct {
 }
 
 var (
-	LogPipe = make(chan Log, 3) //FIXME
+	LogPipe = make(chan Log, 3) //FIXME, why do I need a buffer ?
 )
 
 // PrintLogs writes the list of log lines GetLogs() returns
 func PrintLogs(w http.ResponseWriter, req *http.Request) {
-	t, _ := template.ParseFiles("views/printlogs.html")
+	t, err := template.ParseFiles("views/printlogs.html")
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return err
+	}
 	err := t.Execute(w, GetLogs())
 	if err != nil {
-		fmt.Println("EPRINTLOGS: ", err)
+		fmt.Println("Error: ", err)
+		return err
 	}
 }
 
 // PrintLog writes the whole request and response for a given ES ":logid"
 func PrintLog(w http.ResponseWriter, req *http.Request) {
-	t, _ := template.ParseFiles("views/printlog.html")
+	t, err := template.ParseFiles("views/printlog.html")
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return err
+	}
 	logid := req.URL.Query().Get(":logid")
 	err := t.Execute(w, GetLog(logid))
 	if err != nil {
-		fmt.Println("EPRINTLOG: ", err)
+		fmt.Println("Error: ", err)
+		return err
 	}
 }
 
@@ -55,7 +65,11 @@ func PrintLog(w http.ResponseWriter, req *http.Request) {
 func GetLogs() []Log {
 	var logs []Log
 	var log Log
-	out, _ := search.Search("logs").Type("log").Size("100").Result()
+	out, err := search.Search("logs").Type("log").Size("100").Result()
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return err
+	}
 	hits := out.Hits.Hits
 	for _, hit := range hits {
 		json.Unmarshal(hit.Source, &log)
@@ -68,7 +82,11 @@ func GetLogs() []Log {
 // GetLog returns a whole Log line corresponding to ES :logid
 func GetLog(logid string) Log {
 	var log Log
-	out, _ := core.SearchUri("logs", "log", fmt.Sprintf("_id:%s", logid), "")
+	out, err := core.SearchUri("logs", "log", fmt.Sprintf("_id:%s", logid), "")
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return err
+	}
 	hits := out.Hits.Hits
 	for _, hit := range hits {
 		json.Unmarshal(hit.Source, &log)
