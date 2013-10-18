@@ -37,12 +37,12 @@ func PrintLogs(w http.ResponseWriter, req *http.Request) {
 	t, err := template.ParseFiles("views/printlogs.html")
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return err
+		panic(err)
 	}
-	err := t.Execute(w, GetLogs())
+	err = t.Execute(w, GetLogs())
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return err
+		panic(err)
 	}
 }
 
@@ -51,13 +51,13 @@ func PrintLog(w http.ResponseWriter, req *http.Request) {
 	t, err := template.ParseFiles("views/printlog.html")
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return err
+		panic(err)
 	}
 	logid := req.URL.Query().Get(":logid")
-	err := t.Execute(w, GetLog(logid))
+	err = t.Execute(w, GetLog(logid))
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return err
+		panic(err)
 	}
 }
 
@@ -68,7 +68,7 @@ func GetLogs() []Log {
 	out, err := search.Search("logs").Type("log").Size("100").Result()
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return err
+		panic(err)
 	}
 	hits := out.Hits.Hits
 	for _, hit := range hits {
@@ -85,7 +85,7 @@ func GetLog(logid string) Log {
 	out, err := core.SearchUri("logs", "log", fmt.Sprintf("_id:%s", logid), "")
 	if err != nil {
 		fmt.Println("Error: ", err)
-		return err
+		panic(err)
 	}
 	hits := out.Hits.Hits
 	for _, hit := range hits {
