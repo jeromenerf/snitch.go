@@ -1,5 +1,5 @@
-// snitch.go
 // A debug HTTP proxy
+
 package main
 
 import (
@@ -82,7 +82,7 @@ func GetLogs() []Log {
 // GetLog returns a whole Log line corresponding to ES :logid
 func GetLog(logid string) Log {
 	var log Log
-	out, err := core.SearchUri("logs", "log", fmt.Sprintf("_id:%s", logid), "")
+	out, err := core.SearchUri("logs", "log", fmt.Sprintf("_id:%s", logid), "", 0)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		panic(err)
